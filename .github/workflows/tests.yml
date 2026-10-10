@@ -1,0 +1,32 @@
+name: Library tests
+
+# Builds the parser and simulator and runs their tests on each desktop platform.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Test
+        # --no-tests=error: a green run must mean the tests actually ran.
+        run: ctest --test-dir build -C Release --output-on-failure --no-tests=error
