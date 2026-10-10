@@ -25,18 +25,31 @@ else()
   target_compile_options(gdpf PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wconversion)
 endif()
 
-add_executable(gdpf_cli tools/gdpf_cli.cpp)
-set_target_properties(gdpf_cli PROPERTIES OUTPUT_NAME gdpf)
-target_link_libraries(gdpf_cli PRIVATE gdpf)
+# The command-line tool and the tests are only built when this is the top-level
+# project, not when the library is pulled into another build (the Geode mod).
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  set(GDPF_STANDALONE ON)
+else()
+  set(GDPF_STANDALONE OFF)
+endif()
+option(GDPF_BUILD_TOOLS "Build the gdpf command-line tool" ${GDPF_STANDALONE})
+option(GDPF_BUILD_TESTS "Build the gdpf tests" ${GDPF_STANDALONE})
 
-option(GDPF_BUILD_TESTS "Build the gdpf tests" ON)
+if(GDPF_BUILD_TOOLS)
+  add_executable(gdpf_cli tools/gdpf_cli.cpp)
+  set_target_properties(gdpf_cli PROPERTIES OUTPUT_NAME gdpf)
+  target_link_libraries(gdpf_cli PRIVATE gdpf)
+endif()
+
 if(GDPF_BUILD_TESTS)
   enable_testing()
-  foreach(t codec level sim)
+  foreach(t codec level sim modformat)
     add_executable(test_${t} tests/test_${t}.cpp)
     target_link_libraries(test_${t} PRIVATE gdpf)
     target_compile_definitions(test_${t} PRIVATE
       GDPF_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
     add_test(NAME ${t} COMMAND test_${t})
   endforeach()
+  # The mod's game-independent text helpers are tested here too.
+  target_include_directories(test_modformat PRIVATE mod/src)
 endif()
