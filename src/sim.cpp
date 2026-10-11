@@ -12,9 +12,23 @@
 // measured. Collision, pads, orbs and portals are simplified. Nothing has
 // been compared with the running game yet. See docs/physics.md.
 
+// Counts one unit of collision work in the gdpf_stats build; nothing otherwise.
+#ifdef GDPF_STATS
+#define GDPF_COUNT(field) (++sim_stats().field)
+#else
+#define GDPF_COUNT(field) ((void)0)
+#endif
+
 namespace gdpf {
 
 using namespace constants;
+
+#ifdef GDPF_STATS
+SimStats& sim_stats() {
+    static SimStats stats;
+    return stats;
+}
+#endif
 
 namespace {
 
@@ -199,6 +213,7 @@ Box box_at(double x, double y, double half) {
 }
 
 bool overlaps(const Collider& c, const Box& b) {
+    GDPF_COUNT(overlap_tests);
     if (c.kind == ObjKind::Saw) {
         const double nx = std::clamp(static_cast<double>(c.cx), b.left, b.right);
         const double ny = std::clamp(static_cast<double>(c.cy), b.bottom, b.top);
@@ -589,6 +604,7 @@ void World::collide(PlayerState& p) const {
             for (std::uint32_t index : buckets_[b]) {
                 // A wide collider sits in several buckets; visit it once.
                 if (std::max(first_bucket_[index], b0) != b) continue;
+                GDPF_COUNT(collider_visits);
                 fn(index, colliders_[index]);
                 if (!p.running()) return;
             }

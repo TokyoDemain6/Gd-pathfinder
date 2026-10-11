@@ -112,6 +112,18 @@ private:
     double end_x_ = 0;
 };
 
+// Counters for how much collision work World::step() does, read by the
+// benchmark in bench/. They only exist when the library is compiled with
+// GDPF_STATS (the gdpf_stats CMake target), so the normal library carries no
+// counting code. One set of counters for the whole process; not thread-safe.
+#ifdef GDPF_STATS
+struct SimStats {
+    std::uint64_t collider_visits = 0;  // colliders the broad phase handed to a pass
+    std::uint64_t overlap_tests = 0;    // hitbox tests run on them
+};
+SimStats& sim_stats();
+#endif
+
 // Why the simulator cannot handle this kind of object, or an empty string if
 // it can. Used by analyze() to reject levels up front.
 std::string_view unsupported_reason(const ObjInfo& info);
