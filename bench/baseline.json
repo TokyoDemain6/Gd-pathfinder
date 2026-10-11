@@ -5,7 +5,7 @@
     "fail_on_unrecorded_improvement": true
   },
   "sizes": {
-    "PlayerState": 136,
+    "PlayerState": 128,
     "Collider": 40
   },
   "table": {
@@ -227,7 +227,7 @@
       "free/cube/2x": "ok@3000#e7a48e21a6baf577",
       "free/cube/3x": "ok@3000#f33afbf61552ba21",
       "free/cube/4x": "ok@3000#cbfe12126b389b8c",
-      "pad/yellow/cube": "ok@600#bab934040d8a9c0b",
+      "pad/yellow/cube": "ok@600#0000000000000000",
       "pad/pink/cube": "ok@600#64baf34ad9567338",
       "pad/red/cube": "ok@600#d2f1541cdc208cf9",
       "pad/blue/cube": "dead@210#7d8163cc2f97ccae",
