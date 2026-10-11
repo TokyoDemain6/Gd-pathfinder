@@ -228,7 +228,8 @@ def compare_scenarios(now, base, limits):
 
 
 def compare_sizes(now, base, limits):
-    return [lower_is_better(f"sizeof({k}), bytes", (base or {}).get(k, v), v) for k, v in now.items()], []
+    return ([lower_is_better(f"sizeof({k}), bytes", (base or {}).get(k, v), v) for k, v in now.items()],
+            ["One search state is " + str(now.get("PlayerState", "?")) + " bytes."])
 
 
 def compare_table(now, base, limits):
@@ -237,7 +238,7 @@ def compare_table(now, base, limits):
     rows = [("object IDs known", old, new, f"{new - old:+d}" if new != old else "",
              OK if new == old else (BETTER if new > old else WORSE))]
     kinds = ", ".join(f"{now[k]} {k}" for k in ("solid", "hazard", "saw", "slope", "pad", "orb") if k in now)
-    return rows, [f"Of which: {kinds}."]
+    return rows, [f"{new} object IDs known, of which: {kinds}."]
 
 
 def compare_work(now, base, limits):
@@ -251,22 +252,26 @@ def compare_work(now, base, limits):
             if n[key] * b["ticks"] != b[key] * n["ticks"] and row[4] == OK:
                 row = row[:4] + (WORSE if n[key] * b["ticks"] > b[key] * n["ticks"] else BETTER,)
             rows.append(row)
-    return rows, ["Counted, not timed, so it is the same on every machine."]
+    return rows, ["Objects visited and hitbox tests per tick. Counted, not timed, so the same on every machine."]
 
 
 def compare_instructions(now, base, limits):
     rows, lines = [], []
     limit = limits["instructions_percent"]
     same_compiler = not base or base.get("compiler") == now["compiler"]
+    largest = (0.0, "")
     for case, n in now["cases"].items():
         new = n["per_iteration"]
         old = (base or {}).get("cases", {}).get(case, {}).get("per_iteration", new)
         delta = 100.0 * (new - old) / old if old else 0.0
+        if abs(delta) > largest[0]:
+            largest = (abs(delta), f"{delta:+.2f}% on {case}")
         verdict = OK if abs(delta) <= limit else (WORSE if delta > 0 else BETTER)
         if not same_compiler and verdict != OK:
             verdict = NOTE
         rows.append((f"{case} (per {n['unit']})", f"{old:,.0f}", f"{new:,.0f}", f"{delta:+.1f}%", verdict))
-    lines.append(f"Allowed to move {limit:g}% either way. Compiler: {now['compiler']}.")
+    lines.append(f"Largest move from the baseline: {largest[1] or 'none'}; {limit:g}% is allowed either way. "
+                 f"Compiler: {now['compiler']}.")
     if not same_compiler:
         lines.append(f"The baseline was recorded with a different compiler ({base.get('compiler')}), so these are "
                      "shown but cannot fail the run. Record a new baseline on this compiler to switch the check back on.")
@@ -294,7 +299,8 @@ def compare_coverage(now, base, limits):
         if key == "branch" and verdict != OK:
             verdict = NOTE  # reported, but only line coverage can fail a run
         rows.append((label, f"{old:.1f}%", f"{new:.1f}%", f"{new - old:+.1f} points" if new != old else "", verdict))
-    return rows, [f"Line coverage may move {limit:g} points either way; branch coverage is shown only."]
+    return rows, [f"The tests run {now['line']:.1f}% of the library's lines and {now['branch']:.1f}% of its branches. "
+                  f"Line coverage may move {limit:g} points either way; branch coverage is shown only."]
 
 
 def compare_mutation(now, base, limits):
@@ -350,8 +356,14 @@ def table(rows, limit=40):
 
 
 def report(results, baseline, limits):
-    """Returns (markdown, number of problems)."""
+    """Returns (markdown, number of problems, annotations).
+
+    Annotations are (level, title, message) for GitHub to show on the run
+    page: one per number that moved, and one line summing up the run.
+    """
     body, worse, unrecorded, missing = [], 0, 0, []
+    strict = limits["fail_on_unrecorded_improvement"]
+    annotations, digest = [], []
     for section in SECTIONS:
         if section not in results:
             continue
@@ -362,6 +374,14 @@ def report(results, baseline, limits):
         moved = [r for r in rows if r[4] not in (OK, NOTE)]
         worse += sum(1 for r in moved if r[4] in (WORSE, CHANGED))
         unrecorded += sum(1 for r in moved if r[4] == BETTER)
+        for name, old, new, change, verdict in moved:
+            failing = verdict != BETTER or strict
+            said = {WORSE: "got worse", BETTER: "improved but the baseline was not updated", CHANGED: "changed"}[verdict]
+            was = f"{old} -> {new}" if str(old) != str(new) else str(new)
+            annotations.append(("error" if failing else "notice", TITLES[section],
+                                f"{name} {said}: {was}" + (f" ({change})" if change else "")))
+        if lines and section in ("scenarios", "instructions", "coverage", "mutation"):
+            digest.append(lines[0])
         body.append(f"### {TITLES[section]}")
         body.append("")
         shown = rows if section in ALWAYS_SHOW else moved
@@ -371,7 +391,6 @@ def report(results, baseline, limits):
             body += ["Nothing moved.", ""]
         body += lines + [""]
 
-    strict = limits["fail_on_unrecorded_improvement"]
     problems = worse + (unrecorded if strict else 0)
     head = ["## Performance checks", ""]
     if problems == 0:
@@ -392,7 +411,21 @@ def report(results, baseline, limits):
     if missing:
         head.append("")
         head.append("No baseline yet for: " + ", ".join(missing) + ". These were measured but not checked.")
-    return "\n".join(head + [""] + body), problems
+    # GitHub shows at most ten errors per step; keep the rest as a count.
+    errors = [a for a in annotations if a[0] == "error"]
+    if len(errors) > 9:
+        annotations = [a for a in annotations if a[0] != "error"] + errors[:9] + [
+            ("error", "Performance checks", f"...and {len(errors) - 9} more. The run summary lists them all.")]
+    verdict = "Passed" if problems == 0 else "Failed"
+    annotations.append(("notice", f"Performance checks: {verdict.lower()}", f"{verdict}. " + " ".join(digest)))
+    return "\n".join(head + [""] + body), problems, annotations
+
+
+def github_command(level, title, message):
+    """One annotation in the format GitHub Actions reads from a step's output."""
+    escape = lambda text: text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    title = escape(title).replace(":", "%3A").replace(",", "%2C")
+    return f"::{level} title={title}::{escape(message)}"
 
 
 # ------------------------------------------------------------------- main ---
@@ -470,8 +503,11 @@ def main():
         print(f"baseline updated: {', '.join(s for s in results if s != 'speed')}")
         return 0
 
-    text, problems = report(results, baseline, limits)
+    text, problems, annotations = report(results, baseline, limits)
     print(text)
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        for annotation in annotations:
+            print(github_command(*annotation))
     if args.summary:
         with open(args.summary, "a", encoding="utf-8") as handle:
             handle.write(text + "\n")
