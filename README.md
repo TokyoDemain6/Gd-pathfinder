@@ -59,6 +59,19 @@ ctest --test-dir build
 CI builds and tests the library on Linux, Windows and macOS, and builds the
 mod for every platform Geode supports.
 
+## Performance checks
+
+Every push also runs the checks in [`bench/`](bench/README.md). They compare
+the simulator's speed, memory use and behaviour with numbers recorded in
+`bench/baseline.json`, and fail if any of them moved without the baseline
+being updated in the same change. That includes the simulator giving a
+different result on another platform or compiler.
+
+```sh
+python3 bench/perf.py            # run the checks
+python3 bench/perf.py --update   # accept the new numbers
+```
+
 ## Use
 
 ```sh
@@ -96,6 +109,7 @@ src/            parser, object table, level check, simulator
 tools/          the gdpf command-line tool
 mod/            the Geode mod
 tests/          tests and synthetic fixtures
+bench/          performance checks and their recorded baseline
 scripts/        level-string helpers, fixture generator
 docs/           level format, physics notes, trace format, the mod
 ```
