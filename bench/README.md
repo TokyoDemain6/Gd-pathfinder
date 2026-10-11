@@ -16,7 +16,7 @@ exactly what moved.
 | Simulator behaviour | 316 small levels, one per mechanic and gamemode (each pad, orb and portal, plus free play). Records how each run ends and a hash of the player's state on every tick. | Any run ends differently or takes a different path, even by one bit. |
 | Same result everywhere | The same 316 runs on Linux (GCC, Clang, Arm), Windows and macOS. | Any platform disagrees with the baseline. |
 | Collision work | Objects visited and hitbox tests per tick on fixed benchmark levels. Counted, so identical on every machine. | Either count changes. |
-| CPU instructions | Instructions executed per tick and per level load, counted by valgrind. | A case moves more than 3%. |
+| CPU instructions | Instructions executed per tick and per level load, counted by valgrind. | A case moves more than 2%. |
 | Memory per state | `sizeof(PlayerState)` and `sizeof(Collider)`. | Either changes. |
 | Object table | How many object IDs the built-in table knows. | The total changes. |
 | Test coverage | Share of library lines the tests run. | It moves more than 0.5 points. |

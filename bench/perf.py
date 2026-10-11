@@ -35,9 +35,9 @@ TITLES = {
     "mutation": "Physics numbers the tests pin down",
 }
 DEFAULT_LIMITS = {
-    # A count of instructions repeats almost exactly on one machine, but the
-    # C library picks different routines on different CPUs.
-    "instructions_percent": 3.0,
+    # A count of instructions repeats exactly on one machine. The margin is
+    # for the C library, which picks different routines on different CPUs.
+    "instructions_percent": 2.0,
     "coverage_points": 0.5,
     # An improvement nobody recorded lets a later slowdown back to the old
     # number pass unnoticed, so by default it has to be recorded too.

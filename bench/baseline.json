@@ -1,6 +1,6 @@
 {
   "limits": {
-    "instructions_percent": 3.0,
+    "instructions_percent": 2.0,
     "coverage_points": 0.5,
     "fail_on_unrecorded_improvement": true
   },
